@@ -1,8 +1,17 @@
 <?php
 
+use App\Http\Controllers\Api\Auth\AccessTokenController;
+use App\Http\Controllers\Api\Auth\RegisteredUserController;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
+Route::post('/register', [RegisteredUserController::class, 'store'])->name('api.register');
+Route::post('/login', [AccessTokenController::class, 'store'])
+    ->middleware('throttle:login')
+    ->name('api.login');
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user', fn (Request $request) => new UserResource($request->user()))->name('api.user');
+    Route::post('/logout', [AccessTokenController::class, 'destroy'])->name('api.logout');
+});
