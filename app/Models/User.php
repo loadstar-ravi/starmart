@@ -7,6 +7,8 @@ use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -16,7 +18,8 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
- * The role is deliberately not fillable, so request data can never promote a user to admin.
+ * The role and the blocked time are deliberately not fillable, so request data
+ * can never promote a user to admin or lift a block.
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -45,7 +48,31 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
+            'blocked_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Scope a query to users whose name or email contains the given term.
+     *
+     * @param  Builder<User>  $query
+     */
+    #[Scope]
+    protected function search(Builder $query, string $term): void
+    {
+        $pattern = '%'.$term.'%';
+
+        $query->where(function (Builder $query) use ($pattern) {
+            $query->whereLike('name', $pattern)->orWhereLike('email', $pattern);
+        });
+    }
+
+    /**
+     * Determine whether an admin has blocked the user from signing in.
+     */
+    public function isBlocked(): bool
+    {
+        return $this->blocked_at !== null;
     }
 
     /**

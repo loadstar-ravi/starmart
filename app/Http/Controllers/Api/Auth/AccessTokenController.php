@@ -13,7 +13,7 @@ use Illuminate\Http\Response;
 class AccessTokenController extends Controller
 {
     /**
-     * Exchange valid credentials for an API token.
+     * Exchange valid credentials for an API token, unless an admin has blocked the user.
      */
     public function store(LoginRequest $request, AuthService $authService): JsonResponse
     {
@@ -24,6 +24,10 @@ class AccessTokenController extends Controller
 
         if ($user === null) {
             return response()->json(['message' => __('auth.failed')], Response::HTTP_UNAUTHORIZED);
+        }
+
+        if ($user->isBlocked()) {
+            return response()->json(['message' => AuthService::BLOCKED_MESSAGE], Response::HTTP_FORBIDDEN);
         }
 
         return (new UserResource($user))

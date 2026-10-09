@@ -5,7 +5,7 @@
         <x-admin.stat-tile label="Total sales" hint="From paid orders"><x-money :amount="$overview['sales']" /></x-admin.stat-tile>
         <x-admin.stat-tile label="Orders" :href="route('admin.orders.index')">{{ number_format($overview['orders']) }}</x-admin.stat-tile>
         <x-admin.stat-tile label="Products" :href="route('admin.products.index')">{{ number_format($overview['products']) }}</x-admin.stat-tile>
-        <x-admin.stat-tile label="Customers">{{ number_format($overview['customers']) }}</x-admin.stat-tile>
+        <x-admin.stat-tile label="Customers" :href="route('admin.users.index', ['role' => 'customer'])">{{ number_format($overview['customers']) }}</x-admin.stat-tile>
     </section>
 
     <section class="mt-8" aria-labelledby="orders-by-payment-heading">
