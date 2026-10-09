@@ -2,21 +2,28 @@
 
 namespace App\Services;
 
+use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
 use App\Exceptions\CartException;
+use App\Exceptions\OrderException;
 use App\Jobs\SendOrderConfirmationJob;
 use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class OrderService
 {
+    public const int DEFAULT_PER_PAGE = 10;
+
+    private const string CANCELLED_BEFORE_PAYMENT = 'The order was cancelled before it was paid.';
+
     /**
      * Place an order for everything in the user's cart.
      *
@@ -52,13 +59,106 @@ class OrderService
     }
 
     /**
-     * Find one of the user's own orders by its number, together with its lines.
+     * Paginate the user's own orders with their lines, newest first.
      *
-     * @throws ModelNotFoundException<Order>
+     * @return LengthAwarePaginator<int, Order>
      */
-    public function findForUser(User $user, string $orderNumber): Order
+    public function paginateForUser(User $user, int $perPage = self::DEFAULT_PER_PAGE): LengthAwarePaginator
     {
-        return $user->orders()->with('items')->where('order_number', $orderNumber)->firstOrFail();
+        return $user->orders()
+            ->with('items')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($perPage);
+    }
+
+    /**
+     * Cancel an order: put its stock back and settle its payment.
+     *
+     * A paid order is refunded; an unpaid one has its open payment closed. The order row is
+     * locked and everything is written in one transaction, so an order cannot be cancelled
+     * twice and a failure leaves nothing half-done.
+     *
+     * @throws OrderException
+     */
+    public function cancel(Order $order): Order
+    {
+        try {
+            $order = DB::transaction(function () use ($order) {
+                $order = Order::query()->with('items')->lockForUpdate()->findOrFail($order->id);
+
+                if (! $order->status->isCancellable()) {
+                    throw OrderException::cannotBeCancelled($order);
+                }
+
+                $this->restoreStock($order);
+
+                $order->update([
+                    'status' => OrderStatus::Cancelled,
+                    'payment_status' => $this->settlePayments($order),
+                ]);
+
+                return $order;
+            });
+        } catch (OrderException $exception) {
+            Log::notice('Order cancellation refused.', [
+                'order_id' => $exception->order->id,
+                'reason' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
+
+        Log::info('Order cancelled.', [
+            'order_id' => $order->id,
+            'order_number' => $order->order_number,
+            'user_id' => $order->user_id,
+            'payment_status' => $order->payment_status->value,
+            'stock_restored_by_product' => $order->items
+                ->whereNotNull('product_id')
+                ->pluck('quantity', 'product_id')
+                ->all(),
+        ]);
+
+        return $order;
+    }
+
+    /**
+     * Give back the quantity of every line whose product still exists.
+     *
+     * The products are locked in id order, the same order checkout uses, so the two cannot deadlock.
+     */
+    private function restoreStock(Order $order): void
+    {
+        $quantities = $order->items->whereNotNull('product_id')->pluck('quantity', 'product_id');
+
+        Product::query()
+            ->whereKey($quantities->keys())
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->each(fn (Product $product) => $product->increment('stock', $quantities[$product->id]));
+    }
+
+    /**
+     * Refund the order when it was paid, otherwise close its open payment,
+     * and return the payment status the cancelled order ends up with.
+     */
+    private function settlePayments(Order $order): PaymentStatus
+    {
+        if ($order->payment_status === PaymentStatus::Success) {
+            $order->payments()
+                ->where('status', PaymentStatus::Success)
+                ->update(['status' => PaymentStatus::Refunded]);
+
+            return PaymentStatus::Refunded;
+        }
+
+        $order->payments()
+            ->where('status', PaymentStatus::Pending)
+            ->update(['status' => PaymentStatus::Failed, 'failure_reason' => self::CANCELLED_BEFORE_PAYMENT]);
+
+        return PaymentStatus::Failed;
     }
 
     /**
