@@ -14,6 +14,8 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\CartItemController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\OrderCancellationController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderSuccessController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
@@ -53,9 +55,13 @@ Route::middleware(['auth', 'customer'])->group(function () {
     Route::get('/checkout', [CheckoutController::class, 'create'])->name('checkout.create');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
 
-    Route::get('/orders/{orderNumber}/success', OrderSuccessController::class)->name('orders.success');
+    Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/{order:order_number}', [OrderController::class, 'show'])->name('orders.show');
+    Route::get('/orders/{order:order_number}/success', OrderSuccessController::class)->name('orders.success');
+    Route::post('/orders/{order:order_number}/cancel', [OrderCancellationController::class, 'store'])
+        ->name('orders.cancel');
 
-    Route::get('/orders/{orderNumber}/payment', [PaymentController::class, 'create'])->name('payments.create');
+    Route::get('/orders/{order:order_number}/payment', [PaymentController::class, 'create'])->name('payments.create');
     Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
 });
 

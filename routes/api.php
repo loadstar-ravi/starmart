@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Auth\AccessTokenController;
 use App\Http\Controllers\Api\Auth\RegisteredUserController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\CartItemController;
+use App\Http\Controllers\Api\OrderCancellationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ProductController;
@@ -35,7 +36,14 @@ Route::middleware('auth:sanctum')->group(function () {
             ->whereNumber('item')
             ->name('api.cart.items.destroy');
 
+        Route::get('/orders', [OrderController::class, 'index'])->name('api.orders.index');
         Route::post('/orders', [OrderController::class, 'store'])->name('api.orders.store');
+        Route::get('/orders/{order}', [OrderController::class, 'show'])
+            ->whereNumber('order')
+            ->name('api.orders.show');
+        Route::post('/orders/{order}/cancel', [OrderCancellationController::class, 'store'])
+            ->whereNumber('order')
+            ->name('api.orders.cancel');
 
         Route::post('/payment/process', [PaymentController::class, 'store'])->name('api.payment.process');
     });

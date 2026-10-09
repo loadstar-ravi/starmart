@@ -13,7 +13,11 @@ document.querySelectorAll('[data-submit-once]').forEach((form) => {
 
     const label = button.textContent;
 
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', (event) => {
+        if (event.defaultPrevented) {
+            return;
+        }
+
         button.disabled = true;
         button.textContent = button.dataset.busyLabel ?? label;
     });
