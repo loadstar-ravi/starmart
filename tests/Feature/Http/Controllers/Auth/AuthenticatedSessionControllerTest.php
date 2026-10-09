@@ -58,6 +58,26 @@ class AuthenticatedSessionControllerTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_tells_a_blocked_customer_with_the_right_password_that_the_account_is_blocked(): void
+    {
+        $customer = User::factory()->blocked()->create();
+
+        $response = $this->post('/login', ['email' => $customer->email, 'password' => 'password']);
+
+        $response->assertSessionHasErrors(['email' => 'Your account has been blocked. Please contact support.']);
+        $this->assertGuest();
+    }
+
+    public function test_does_not_reveal_that_an_account_is_blocked_to_someone_with_the_wrong_password(): void
+    {
+        $customer = User::factory()->blocked()->create();
+
+        $response = $this->post('/login', ['email' => $customer->email, 'password' => 'wrong-password']);
+
+        $response->assertSessionHasErrors(['email' => 'These credentials do not match our records.']);
+        $this->assertGuest();
+    }
+
     public function test_logout_signs_the_customer_out(): void
     {
         $customer = User::factory()->create();

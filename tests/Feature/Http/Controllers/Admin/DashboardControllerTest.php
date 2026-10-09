@@ -37,6 +37,14 @@ class DashboardControllerTest extends TestCase
         ]);
     }
 
+    public function test_links_the_customer_count_to_the_customers_in_the_user_list(): void
+    {
+        $response = $this->actingAs(User::factory()->admin()->create())->get('/admin');
+
+        $response->assertOk();
+        $response->assertSee(route('admin.users.index', ['role' => 'customer']));
+    }
+
     public function test_counts_the_orders_by_payment_status_and_links_each_count_to_those_orders(): void
     {
         $customer = User::factory()->create();
