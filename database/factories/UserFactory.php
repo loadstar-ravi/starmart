@@ -45,6 +45,16 @@ class UserFactory extends Factory
     }
 
     /**
+     * Indicate that an admin has blocked the user from signing in.
+     */
+    public function blocked(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'blocked_at' => now(),
+        ]);
+    }
+
+    /**
      * Indicate that the user is an administrator.
      */
     public function admin(): static

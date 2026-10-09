@@ -8,6 +8,11 @@ use Illuminate\Support\Facades\Hash;
 class AuthService
 {
     /**
+     * What a blocked user is told when they try to sign in or are signed out.
+     */
+    public const string BLOCKED_MESSAGE = 'Your account has been blocked. Please contact support.';
+
+    /**
      * Register a new customer account.
      *
      * @param  array{name: string, email: string, password: string}  $attributes

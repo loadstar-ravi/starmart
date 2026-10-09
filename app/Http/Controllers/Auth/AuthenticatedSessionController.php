@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Auth;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\User;
+use App\Services\AuthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +24,10 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Sign a customer in.
+     * Sign a customer in, unless an admin has blocked them.
+     *
+     * The block is only checked once the password has matched, so nobody
+     * can find out that an account is blocked without knowing its password.
      *
      * @throws ValidationException
      */
@@ -33,8 +38,16 @@ class AuthenticatedSessionController extends Controller
             'role' => UserRole::Customer->value,
         ];
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
-            throw ValidationException::withMessages(['email' => __('auth.failed')]);
+        $blocked = false;
+
+        $signedIn = Auth::attemptWhen($credentials, function (User $user) use (&$blocked) {
+            return ! ($blocked = $user->isBlocked());
+        }, $request->boolean('remember'));
+
+        if (! $signedIn) {
+            throw ValidationException::withMessages([
+                'email' => $blocked ? AuthService::BLOCKED_MESSAGE : __('auth.failed'),
+            ]);
         }
 
         $request->session()->regenerate();
