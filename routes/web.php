@@ -4,6 +4,8 @@ use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController as AdminAuthe
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CategoryStatusController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Admin\OrderStatusController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\ProductImageController;
 use App\Http\Controllers\Admin\ProductStatusController;
@@ -89,5 +91,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/products/{product}/images/{image}', [ProductImageController::class, 'destroy'])
             ->scopeBindings()
             ->name('products.images.destroy');
+
+        Route::resource('orders', AdminOrderController::class)->only(['index', 'show']);
+        Route::patch('/orders/{order}/status', [OrderStatusController::class, 'update'])
+            ->name('orders.status.update');
     });
 });
