@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Auth\AccessTokenController;
 use App\Http\Controllers\Api\Auth\RegisteredUserController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\CartItemController;
+use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
@@ -32,5 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/cart/{item}', [CartItemController::class, 'destroy'])
             ->whereNumber('item')
             ->name('api.cart.items.destroy');
+
+        Route::post('/orders', [OrderController::class, 'store'])->name('api.orders.store');
     });
 });
