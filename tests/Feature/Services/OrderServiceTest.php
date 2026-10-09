@@ -357,6 +357,118 @@ class OrderServiceTest extends TestCase
         }
     }
 
+    #[TestWith([OrderStatus::Placed, OrderStatus::Confirmed], 'to the next step')]
+    #[TestWith([OrderStatus::Placed, OrderStatus::Shipped], 'past several steps')]
+    #[TestWith([OrderStatus::Shipped, OrderStatus::Delivered], 'to the last step')]
+    public function test_updating_the_status_moves_the_order_forward(OrderStatus $from, OrderStatus $to): void
+    {
+        $order = Order::factory()->status($from)->paidOnline()->create();
+
+        $updated = (new OrderService)->updateStatus($order, $to);
+
+        $this->assertTrue($updated->is($order));
+        $this->assertSame($to, $order->refresh()->status);
+        $this->assertSame(PaymentStatus::Success, $order->payment_status);
+    }
+
+    public function test_delivering_a_cash_on_delivery_order_records_its_payment_as_paid(): void
+    {
+        $this->travelTo('2026-10-09 10:30:00');
+        $order = Order::factory()->status(OrderStatus::Shipped)->create(['payment_method' => PaymentMethod::Cod]);
+        $payment = Payment::factory()->for($order)->create();
+
+        (new OrderService)->updateStatus($order, OrderStatus::Delivered);
+
+        $this->assertSame(PaymentStatus::Success, $order->refresh()->payment_status);
+        $this->assertSame(PaymentStatus::Success, $payment->refresh()->status);
+        $this->assertSame('2026-10-09 10:30:00', $payment->paid_at->toDateTimeString());
+    }
+
+    public function test_shipping_a_cash_on_delivery_order_leaves_its_payment_pending(): void
+    {
+        $order = Order::factory()->create(['payment_method' => PaymentMethod::Cod]);
+        $payment = Payment::factory()->for($order)->create();
+
+        (new OrderService)->updateStatus($order, OrderStatus::Shipped);
+
+        $this->assertSame(PaymentStatus::Pending, $order->refresh()->payment_status);
+        $this->assertSame(PaymentStatus::Pending, $payment->refresh()->status);
+    }
+
+    public function test_delivering_an_online_order_that_is_not_paid_leaves_its_payment_pending(): void
+    {
+        $order = Order::factory()->create(['payment_method' => PaymentMethod::Online]);
+        $payment = Payment::factory()->for($order)->create();
+
+        (new OrderService)->updateStatus($order, OrderStatus::Delivered);
+
+        $this->assertSame(OrderStatus::Delivered, $order->refresh()->status);
+        $this->assertSame(PaymentStatus::Pending, $order->payment_status);
+        $this->assertSame(PaymentStatus::Pending, $payment->refresh()->status);
+    }
+
+    public function test_updating_the_status_to_cancelled_cancels_the_order_and_puts_its_stock_back(): void
+    {
+        $product = Product::factory()->create(['stock' => 3]);
+        $order = Order::factory()->status(OrderStatus::Confirmed)->paidOnline()->create();
+        OrderItem::factory()->for($order)->for($product)->create(['quantity' => 2]);
+
+        (new OrderService)->updateStatus($order, OrderStatus::Cancelled);
+
+        $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
+        $this->assertSame(PaymentStatus::Refunded, $order->payment_status);
+        $this->assertSame(5, $product->refresh()->stock);
+    }
+
+    /**
+     * @return array<string, array{0: OrderStatus, 1: OrderStatus, 2: string}>
+     */
+    public static function statusChangesThatAreRefused(): array
+    {
+        return [
+            'to the status it already has' => [
+                OrderStatus::Shipped,
+                OrderStatus::Shipped,
+                'Order ORD-10001 is already shipped.',
+            ],
+            'back to an earlier step' => [
+                OrderStatus::Shipped,
+                OrderStatus::Confirmed,
+                'Order ORD-10001 is shipped and cannot go back to confirmed.',
+            ],
+            'after it was delivered' => [
+                OrderStatus::Delivered,
+                OrderStatus::Shipped,
+                'Order ORD-10001 is delivered and its status can no longer be changed.',
+            ],
+            'after it was cancelled' => [
+                OrderStatus::Cancelled,
+                OrderStatus::Confirmed,
+                'Order ORD-10001 is cancelled and its status can no longer be changed.',
+            ],
+            'to cancelled once it is shipped' => [
+                OrderStatus::Shipped,
+                OrderStatus::Cancelled,
+                'Order ORD-10001 is shipped and can no longer be cancelled.',
+            ],
+        ];
+    }
+
+    #[DataProvider('statusChangesThatAreRefused')]
+    public function test_refuses_a_status_change_the_order_does_not_allow_and_leaves_it_as_it_is(OrderStatus $from, OrderStatus $to, string $expected): void
+    {
+        $order = Order::factory()->status($from)->create(['order_number' => 'ORD-10001']);
+
+        try {
+            (new OrderService)->updateStatus($order, $to);
+            $this->fail('The status change should have been refused.');
+        } catch (OrderException $exception) {
+            $this->assertSame($expected, $exception->getMessage());
+            $this->assertSame($from, $order->refresh()->status);
+            $this->assertSame(PaymentStatus::Pending, $order->payment_status);
+        }
+    }
+
     private function putInCart(User $user, Product $product, int $quantity): void
     {
         $cart = $user->cart()->first() ?? Cart::factory()->for($user)->create();
