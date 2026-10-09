@@ -100,10 +100,30 @@ class Product extends Model
     }
 
     /**
-     * Determine whether the product is visible to customers.
+     * Scope a query to the products customers can see: active ones in an active category.
+     *
+     * @param  Builder<Product>  $query
+     */
+    #[Scope]
+    protected function visibleToCustomers(Builder $query): void
+    {
+        $query->where('status', ProductStatus::Active)
+            ->whereHas('category', fn (Builder $category) => $category->active());
+    }
+
+    /**
+     * Determine whether the product is active.
      */
     public function isActive(): bool
     {
         return $this->status === ProductStatus::Active;
+    }
+
+    /**
+     * Determine whether at least one unit can be bought.
+     */
+    public function isInStock(): bool
+    {
+        return $this->stock > 0;
     }
 }

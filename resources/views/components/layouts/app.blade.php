@@ -15,6 +15,7 @@
             <a href="{{ route('home') }}" class="text-lg font-bold text-indigo-600">{{ config('app.name') }}</a>
 
             <div class="flex flex-wrap items-center gap-4 text-sm font-medium">
+                <a href="{{ route('products.index') }}" @class(['hover:text-indigo-600', 'text-indigo-600' => request()->routeIs('products.*')])>Products</a>
                 @auth
                     <span class="text-slate-500">Hi, {{ auth()->user()->name }}</span>
                     @if (auth()->user()->isAdmin())

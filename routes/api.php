@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Auth\AccessTokenController;
 use App\Http\Controllers\Api\Auth\RegisteredUserController;
+use App\Http\Controllers\Api\ProductController;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -10,6 +11,11 @@ Route::post('/register', [RegisteredUserController::class, 'store'])->name('api.
 Route::post('/login', [AccessTokenController::class, 'store'])
     ->middleware('throttle:login')
     ->name('api.login');
+
+Route::get('/products', [ProductController::class, 'index'])->name('api.products.index');
+Route::get('/products/{product}', [ProductController::class, 'show'])
+    ->whereNumber('product')
+    ->name('api.products.show');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', fn (Request $request) => new UserResource($request->user()))->name('api.user');
