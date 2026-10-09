@@ -124,6 +124,76 @@ class OrderService
     }
 
     /**
+     * Move an order to a later status on behalf of the shop.
+     *
+     * Cancelling goes through cancel(), so the stock and the payment are settled exactly as
+     * when the customer cancels. A cash on delivery order is recorded as paid once it is delivered.
+     *
+     * @throws OrderException
+     */
+    public function updateStatus(Order $order, OrderStatus $status): Order
+    {
+        if ($status === OrderStatus::Cancelled) {
+            return $this->cancel($order);
+        }
+
+        try {
+            [$order, $previousStatus] = DB::transaction(function () use ($order, $status) {
+                $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+
+                if (! $order->status->canMoveTo($status)) {
+                    throw OrderException::cannotBeMovedTo($order, $status);
+                }
+
+                $previousStatus = $order->status;
+
+                $order->update([
+                    'status' => $status,
+                    'payment_status' => $status === OrderStatus::Delivered
+                        ? $this->collectCashOnDelivery($order)
+                        : $order->payment_status,
+                ]);
+
+                return [$order, $previousStatus];
+            });
+        } catch (OrderException $exception) {
+            Log::notice('Order status change refused.', [
+                'order_id' => $exception->order->id,
+                'reason' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
+
+        Log::info('Order status updated.', [
+            'order_id' => $order->id,
+            'order_number' => $order->order_number,
+            'from' => $previousStatus->value,
+            'to' => $order->status->value,
+            'payment_status' => $order->payment_status->value,
+        ]);
+
+        return $order;
+    }
+
+    /**
+     * Cash on delivery is paid when the order is handed over, so record that payment
+     * and return the payment status the delivered order ends up with.
+     */
+    private function collectCashOnDelivery(Order $order): PaymentStatus
+    {
+        if ($order->payment_method !== PaymentMethod::Cod || $order->payment_status !== PaymentStatus::Pending) {
+            return $order->payment_status;
+        }
+
+        $order->payments()
+            ->where('status', PaymentStatus::Pending)
+            ->update(['status' => PaymentStatus::Success, 'paid_at' => now()]);
+
+        return PaymentStatus::Success;
+    }
+
+    /**
      * Give back the quantity of every line whose product still exists.
      *
      * The products are locked in id order, the same order checkout uses, so the two cannot deadlock.

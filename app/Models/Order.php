@@ -7,6 +7,8 @@ use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -56,6 +58,26 @@ class Order extends Model
             'payment_method' => PaymentMethod::class,
             'shipping_address' => 'array',
         ];
+    }
+
+    /**
+     * Scope a query to orders whose number, or whose customer's name or email, contains the given term.
+     *
+     * @param  Builder<Order>  $query
+     */
+    #[Scope]
+    protected function search(Builder $query, string $term): void
+    {
+        $pattern = '%'.$term.'%';
+
+        $query->where(function (Builder $query) use ($pattern) {
+            $query->whereLike('order_number', $pattern)
+                ->orWhereHas('user', function (Builder $user) use ($pattern) {
+                    $user->where(function (Builder $user) use ($pattern) {
+                        $user->whereLike('name', $pattern)->orWhereLike('email', $pattern);
+                    });
+                });
+        });
     }
 
     /**
