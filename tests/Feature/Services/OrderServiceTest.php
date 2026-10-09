@@ -6,11 +6,13 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Exceptions\CartException;
+use App\Exceptions\OrderException;
 use App\Jobs\SendOrderConfirmationJob;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
@@ -19,6 +21,7 @@ use Closure;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\TestWith;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -233,6 +236,124 @@ class OrderServiceTest extends TestCase
             $this->assertSame(5, $product->refresh()->stock);
             $this->assertSame(1, $user->cartItems()->count());
             Queue::assertNothingPushed();
+        }
+    }
+
+    public function test_lists_only_the_users_own_orders_newest_first(): void
+    {
+        $user = User::factory()->create();
+        $older = Order::factory()->for($user)->create(['created_at' => now()->subDays(2)]);
+        $newer = Order::factory()->for($user)->create(['created_at' => now()->subDay()]);
+        Order::factory()->create();
+
+        $orders = (new OrderService)->paginateForUser($user);
+
+        $this->assertSame([$newer->id, $older->id], $orders->pluck('id')->all());
+        $this->assertSame(10, $orders->perPage());
+    }
+
+    #[TestWith([OrderStatus::Placed], 'placed')]
+    #[TestWith([OrderStatus::Confirmed], 'confirmed')]
+    public function test_cancelling_marks_the_order_cancelled_and_puts_the_stock_of_each_line_back(OrderStatus $status): void
+    {
+        $laptop = Product::factory()->create(['stock' => 3]);
+        $mouse = Product::factory()->outOfStock()->create();
+        $untouched = Product::factory()->create(['stock' => 7]);
+        $order = Order::factory()->status($status)->create();
+        OrderItem::factory()->for($order)->for($laptop)->create(['quantity' => 2]);
+        OrderItem::factory()->for($order)->for($mouse)->create(['quantity' => 1]);
+
+        $cancelled = (new OrderService)->cancel($order);
+
+        $this->assertTrue($cancelled->is($order));
+        $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
+        $this->assertSame(5, $laptop->refresh()->stock);
+        $this->assertSame(1, $mouse->refresh()->stock);
+        $this->assertSame(7, $untouched->refresh()->stock);
+    }
+
+    public function test_cancelling_an_unpaid_order_closes_its_open_payment(): void
+    {
+        $order = Order::factory()->create();
+        $payment = Payment::factory()->for($order)->create();
+
+        (new OrderService)->cancel($order);
+
+        $this->assertSame(PaymentStatus::Failed, $order->refresh()->payment_status);
+        $this->assertSame(PaymentStatus::Failed, $payment->refresh()->status);
+        $this->assertSame('The order was cancelled before it was paid.', $payment->failure_reason);
+    }
+
+    public function test_cancelling_a_paid_order_refunds_its_payment(): void
+    {
+        $order = Order::factory()->paidOnline()->create();
+        $declined = Payment::factory()->for($order)->failed()->create();
+        $paid = Payment::factory()->for($order)->successful()->create();
+
+        (new OrderService)->cancel($order);
+
+        $this->assertSame(PaymentStatus::Refunded, $order->refresh()->payment_status);
+        $this->assertSame(PaymentStatus::Refunded, $paid->refresh()->status);
+        $this->assertNotNull($paid->transaction_reference);
+        $this->assertSame(PaymentStatus::Failed, $declined->refresh()->status);
+    }
+
+    public function test_cancelling_skips_a_line_whose_product_was_deleted(): void
+    {
+        $order = Order::factory()->create();
+        $deleted = Product::factory()->create();
+        OrderItem::factory()->for($order)->for($deleted)->create(['quantity' => 2]);
+        $deleted->delete();
+
+        (new OrderService)->cancel($order);
+
+        $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
+    }
+
+    /**
+     * @return array<string, array{0: OrderStatus, 1: string}>
+     */
+    public static function statusesThatCannotBeCancelled(): array
+    {
+        return [
+            'processing' => [OrderStatus::Processing, 'Order ORD-10001 is processing and can no longer be cancelled.'],
+            'shipped' => [OrderStatus::Shipped, 'Order ORD-10001 is shipped and can no longer be cancelled.'],
+            'delivered' => [OrderStatus::Delivered, 'Order ORD-10001 is delivered and can no longer be cancelled.'],
+            'already cancelled' => [OrderStatus::Cancelled, 'Order ORD-10001 is already cancelled.'],
+        ];
+    }
+
+    #[DataProvider('statusesThatCannotBeCancelled')]
+    public function test_refuses_to_cancel_an_order_that_is_past_that_point_and_leaves_it_as_it_is(OrderStatus $status, string $expected): void
+    {
+        $product = Product::factory()->create(['stock' => 3]);
+        $order = Order::factory()->status($status)->paidOnline()->create(['order_number' => 'ORD-10001']);
+        OrderItem::factory()->for($order)->for($product)->create(['quantity' => 2]);
+
+        try {
+            (new OrderService)->cancel($order);
+            $this->fail('The cancellation should have been refused.');
+        } catch (OrderException $exception) {
+            $this->assertSame($expected, $exception->getMessage());
+            $this->assertSame($status, $order->refresh()->status);
+            $this->assertSame(PaymentStatus::Success, $order->payment_status);
+            $this->assertSame(3, $product->refresh()->stock);
+        }
+    }
+
+    public function test_a_failure_while_cancelling_rolls_the_stock_back(): void
+    {
+        $product = Product::factory()->create(['stock' => 3]);
+        $order = Order::factory()->create();
+        OrderItem::factory()->for($order)->for($product)->create(['quantity' => 2]);
+        Order::updating(fn () => throw new RuntimeException('The order could not be saved.'));
+
+        try {
+            (new OrderService)->cancel($order);
+            $this->fail('Cancelling should have failed while saving the order.');
+        } catch (RuntimeException) {
+            $this->assertSame(3, $product->refresh()->stock);
+            $this->assertSame(OrderStatus::Placed, $order->refresh()->status);
         }
     }
 

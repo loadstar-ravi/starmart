@@ -40,7 +40,7 @@ class OrderConfirmed extends Notification
         return $message
             ->line("Total: {$this->money($this->order->total_amount)}")
             ->line("Payment: {$this->order->payment_method->label()}")
-            ->action('View your order', route('orders.success', $this->order->order_number));
+            ->action('View your order', route('orders.show', $this->order->order_number));
     }
 
     /**

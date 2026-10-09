@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -207,6 +208,132 @@ class OrderControllerTest extends TestCase
         $response->assertExactJson(['message' => '"Gaming Laptop" has only 1 in stock.']);
         $this->assertDatabaseCount('orders', 0);
         $this->assertSame(1, $product->refresh()->stock);
+    }
+
+    public function test_returns_401_for_the_order_list_and_an_order_when_no_token_is_provided(): void
+    {
+        $order = Order::factory()->create();
+
+        $this->getJson('/api/orders')->assertUnauthorized();
+        $this->getJson("/api/orders/{$order->id}")->assertUnauthorized();
+    }
+
+    public function test_returns_403_for_the_order_list_and_an_order_for_admins(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $order = Order::factory()->for($admin)->create();
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/orders')->assertForbidden();
+        $this->getJson("/api/orders/{$order->id}")->assertForbidden();
+    }
+
+    public function test_lists_only_the_customers_own_orders_newest_first_ten_per_page(): void
+    {
+        $customer = User::factory()->create();
+        $older = Order::factory()->for($customer)->create(['created_at' => now()->subDays(2)]);
+        $newer = Order::factory()->for($customer)->create(['created_at' => now()->subDay()]);
+        OrderItem::factory()->for($newer)->create(['product_name' => 'Gaming Laptop']);
+        Order::factory()->create();
+        Sanctum::actingAs($customer);
+
+        $response = $this->getJson('/api/orders');
+
+        $response->assertOk();
+        $this->assertSame([$newer->id, $older->id], $response->json('data.*.id'));
+        $response->assertJsonPath('data.0.items.0.product_name', 'Gaming Laptop');
+        $response->assertJsonPath('meta.total', 2);
+        $response->assertJsonPath('meta.per_page', 10);
+    }
+
+    public function test_per_page_sets_the_page_size_of_the_order_list(): void
+    {
+        $customer = User::factory()->create();
+        Order::factory()->for($customer)->count(3)->create();
+        Sanctum::actingAs($customer);
+
+        $response = $this->getJson('/api/orders?per_page=2');
+
+        $response->assertOk();
+        $response->assertJsonCount(2, 'data');
+        $response->assertJsonPath('meta.last_page', 2);
+        $this->assertStringContainsString('per_page=2', $response->json('links.next'));
+    }
+
+    public function test_returns_422_for_a_page_size_above_the_limit(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $response = $this->getJson('/api/orders?per_page=51');
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['per_page' => 'The per page field must not be greater than 50.']);
+    }
+
+    public function test_shows_one_of_the_customers_orders_with_its_lines(): void
+    {
+        $order = Order::factory()->create([
+            'order_number' => 'ORD-10001',
+            'total_amount' => 500,
+            'shipping_address' => self::ADDRESS,
+        ]);
+        $line = OrderItem::factory()->for($order)->create([
+            'product_name' => 'Gaming Laptop',
+            'unit_price' => 250,
+            'quantity' => 2,
+            'line_total' => 500,
+        ]);
+        Sanctum::actingAs($order->user);
+
+        $response = $this->getJson("/api/orders/{$order->id}");
+
+        $response->assertOk();
+        $response->assertExactJson(['data' => [
+            'id' => $order->id,
+            'order_number' => 'ORD-10001',
+            'status' => 'placed',
+            'payment_status' => 'pending',
+            'payment_method' => 'cod',
+            'total_amount' => '500.00',
+            'shipping_address' => self::ADDRESS,
+            'items' => [[
+                'id' => $line->id,
+                'product_id' => $line->product_id,
+                'product_name' => 'Gaming Laptop',
+                'unit_price' => '250.00',
+                'quantity' => 2,
+                'line_total' => '500.00',
+            ]],
+            'created_at' => $order->created_at->toIso8601String(),
+        ]]);
+    }
+
+    public function test_returns_404_for_the_order_of_another_customer(): void
+    {
+        $order = Order::factory()->create();
+        Sanctum::actingAs(User::factory()->create());
+
+        $response = $this->getJson("/api/orders/{$order->id}");
+
+        $response->assertNotFound();
+        $response->assertExactJson(['message' => 'The requested resource was not found.']);
+    }
+
+    public function test_returns_404_for_an_unknown_order(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $response = $this->getJson('/api/orders/999999');
+
+        $response->assertNotFound();
+        $response->assertExactJson(['message' => 'The requested resource was not found.']);
+    }
+
+    public function test_returns_404_for_an_order_id_that_is_not_a_number(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->getJson('/api/orders/ORD-10001')->assertNotFound();
     }
 
     private function putInCart(User $user, Product $product, int $quantity): void

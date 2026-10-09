@@ -26,6 +26,7 @@
                                 </span>
                             @endif
                         </a>
+                        <a href="{{ route('orders.index') }}" @class(['hover:text-indigo-600', 'text-indigo-600' => request()->routeIs('orders.*', 'payments.*')])>My orders</a>
                     @endif
                     <span class="text-slate-500">Hi, {{ auth()->user()->name }}</span>
                     @if (auth()->user()->isAdmin())
