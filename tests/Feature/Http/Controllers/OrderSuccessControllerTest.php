@@ -54,6 +54,39 @@ class OrderSuccessControllerTest extends TestCase
         $response->assertSeeInOrder(['Cash on delivery', 'Pending', 'Placed']);
     }
 
+    public function test_offers_to_pay_for_an_online_order_that_is_not_paid_yet(): void
+    {
+        $order = Order::factory()->create(['order_number' => 'ORD-10001', 'payment_method' => PaymentMethod::Online]);
+
+        $response = $this->actingAs($order->user)->get('/orders/ORD-10001/success');
+
+        $response->assertOk();
+        $response->assertSee('Payment needed');
+        $response->assertSee(route('payments.create', 'ORD-10001'));
+    }
+
+    public function test_does_not_offer_to_pay_for_an_order_that_is_paid(): void
+    {
+        $order = Order::factory()->paidOnline()->create(['order_number' => 'ORD-10001']);
+
+        $response = $this->actingAs($order->user)->get('/orders/ORD-10001/success');
+
+        $response->assertOk();
+        $response->assertSee('Paid');
+        $response->assertDontSee('Payment needed');
+        $response->assertDontSee(route('payments.create', 'ORD-10001'));
+    }
+
+    public function test_does_not_offer_to_pay_online_for_a_cash_on_delivery_order(): void
+    {
+        $order = Order::factory()->create(['order_number' => 'ORD-10001', 'payment_method' => PaymentMethod::Cod]);
+
+        $response = $this->actingAs($order->user)->get('/orders/ORD-10001/success');
+
+        $response->assertOk();
+        $response->assertDontSee('Payment needed');
+    }
+
     public function test_the_order_of_another_customer_is_not_found(): void
     {
         Order::factory()->create(['order_number' => 'ORD-10001']);
