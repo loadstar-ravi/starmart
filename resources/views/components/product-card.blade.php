@@ -22,5 +22,14 @@
         @unless ($product->isInStock())
             <p class="sr-only">Out of stock</p>
         @endunless
+
+        @if ($product->isInStock() && auth()->user()?->isCustomer())
+            <form method="POST" action="{{ route('cart.items.store') }}" class="pt-2">
+                @csrf
+                <input type="hidden" name="product_id" value="{{ $product->id }}">
+                <input type="hidden" name="quantity" value="1">
+                <button type="submit" class="w-full cursor-pointer rounded-lg border border-indigo-600 px-3 py-1.5 text-sm font-semibold text-indigo-600 hover:bg-indigo-50" aria-label="Add {{ $product->name }} to your cart">Add to cart</button>
+            </form>
+        @endif
     </div>
 </article>

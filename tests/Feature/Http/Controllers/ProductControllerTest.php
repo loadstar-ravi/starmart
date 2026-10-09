@@ -5,6 +5,7 @@ namespace Tests\Feature\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -189,6 +190,38 @@ class ProductControllerTest extends TestCase
         $response->assertDontSee('Out of stock');
     }
 
+    public function test_offers_customers_to_add_only_products_that_are_in_stock(): void
+    {
+        Product::factory()->create(['name' => 'Gaming Laptop']);
+        Product::factory()->outOfStock()->create(['name' => 'Sold Out Camera']);
+
+        $response = $this->actingAs(User::factory()->create())->get('/products');
+
+        $response->assertOk();
+        $response->assertSee('Add Gaming Laptop to your cart');
+        $response->assertDontSee('Add Sold Out Camera to your cart');
+    }
+
+    public function test_does_not_offer_guests_to_add_products(): void
+    {
+        Product::factory()->create();
+
+        $response = $this->get('/products');
+
+        $response->assertOk();
+        $response->assertDontSee('Add to cart');
+    }
+
+    public function test_does_not_offer_admins_to_add_products(): void
+    {
+        Product::factory()->create();
+
+        $response = $this->actingAs(User::factory()->admin()->create())->get('/products');
+
+        $response->assertOk();
+        $response->assertDontSee('Add to cart');
+    }
+
     /**
      * @return array<string, array{0: string, 1: string, 2: string}>
      */
@@ -307,6 +340,50 @@ class ProductControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Out of stock');
+    }
+
+    public function test_details_offer_customers_to_add_up_to_the_stock(): void
+    {
+        $product = Product::factory()->create(['slug' => 'gaming-laptop', 'stock' => 7]);
+
+        $response = $this->actingAs(User::factory()->create())->get('/products/gaming-laptop');
+
+        $response->assertOk();
+        $response->assertSee('Add to cart');
+        $response->assertSee('name="product_id" value="'.$product->id.'"', false);
+        $response->assertSee('max="7"', false);
+    }
+
+    public function test_details_ask_guests_to_log_in_before_adding_the_product(): void
+    {
+        Product::factory()->create(['slug' => 'gaming-laptop']);
+
+        $response = $this->get('/products/gaming-laptop');
+
+        $response->assertOk();
+        $response->assertDontSee('Add to cart');
+        $response->assertSee('to add this product to your cart.');
+    }
+
+    public function test_details_offer_admins_neither_the_cart_nor_the_login_link(): void
+    {
+        Product::factory()->create(['slug' => 'gaming-laptop']);
+
+        $response = $this->actingAs(User::factory()->admin()->create())->get('/products/gaming-laptop');
+
+        $response->assertOk();
+        $response->assertDontSee('Add to cart');
+        $response->assertDontSee('to add this product to your cart.');
+    }
+
+    public function test_details_do_not_offer_to_add_a_product_without_stock(): void
+    {
+        Product::factory()->outOfStock()->create(['slug' => 'gaming-laptop']);
+
+        $response = $this->actingAs(User::factory()->create())->get('/products/gaming-laptop');
+
+        $response->assertOk();
+        $response->assertDontSee('Add to cart');
     }
 
     public function test_details_use_the_primary_image_as_the_main_image(): void

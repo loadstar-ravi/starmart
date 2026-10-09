@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Cart;
+use App\Models\CartItem;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
@@ -30,6 +32,45 @@ class HomePageTest extends TestCase
         $response->assertOk();
         $response->assertSee('&lt;script&gt;', false);
         $response->assertDontSee("<script>alert('xss')</script>", false);
+    }
+
+    public function test_navigation_does_not_link_guests_to_the_cart(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertDontSee(route('cart.show'));
+    }
+
+    public function test_navigation_does_not_link_admins_to_the_cart(): void
+    {
+        $response = $this->actingAs(User::factory()->admin()->create())->get('/');
+
+        $response->assertOk();
+        $response->assertDontSee(route('cart.show'));
+    }
+
+    public function test_navigation_shows_how_many_units_are_in_the_cart_of_the_signed_in_customer(): void
+    {
+        $cart = Cart::factory()->create();
+        CartItem::factory()->for($cart)->create(['quantity' => 2]);
+        CartItem::factory()->for($cart)->create(['quantity' => 3]);
+        CartItem::factory()->create(['quantity' => 40]);
+
+        $response = $this->actingAs($cart->user)->get('/');
+
+        $response->assertOk();
+        $response->assertSee(route('cart.show'));
+        $response->assertSee('<span data-cart-count>5</span>', false);
+    }
+
+    public function test_navigation_shows_no_count_while_the_cart_is_empty(): void
+    {
+        $response = $this->actingAs(User::factory()->create())->get('/');
+
+        $response->assertOk();
+        $response->assertSee(route('cart.show'));
+        $response->assertDontSee('data-cart-count', false);
     }
 
     public function test_links_to_the_active_categories_only(): void
