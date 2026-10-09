@@ -46,6 +46,7 @@ class CartControllerTest extends TestCase
         $response->assertSeeInOrder(['Gaming Laptop', '109,981.00', '54,990.50', 'Wireless Mouse', '799.00']);
         $response->assertSeeInOrder(['Summary', 'Items', '3', 'Total', '110,780.00']);
         $response->assertDontSee('left out of the total');
+        $response->assertSee(route('checkout.create'));
     }
 
     public function test_offers_to_lower_and_raise_a_quantity_by_one(): void
@@ -136,6 +137,7 @@ class CartControllerTest extends TestCase
         $response->assertOk();
         $response->assertSee('Only 1 left. Lower the quantity to buy this.');
         $response->assertSee('left out of the total');
+        $response->assertDontSee(route('checkout.create'));
         $response->assertSee("quantity-{$item->id}");
     }
 

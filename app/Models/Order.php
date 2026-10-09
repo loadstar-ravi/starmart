@@ -20,6 +20,11 @@ class Order extends Model
     use HasFactory;
 
     /**
+     * What is added to an order's id to get the digits of its order number.
+     */
+    private const int NUMBER_OFFSET = 10000;
+
+    /**
      * The model's default values for attributes.
      *
      * @var array<string, mixed>
@@ -28,6 +33,14 @@ class Order extends Model
         'status' => OrderStatus::Placed->value,
         'payment_status' => PaymentStatus::Pending->value,
     ];
+
+    /**
+     * Get the order number for the order with the given id: ORD-10001 for the first order.
+     */
+    public static function numberFor(int $id): string
+    {
+        return 'ORD-'.(self::NUMBER_OFFSET + $id);
+    }
 
     /**
      * Get the attributes that should be cast.
