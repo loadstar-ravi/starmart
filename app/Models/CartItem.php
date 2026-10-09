@@ -41,4 +41,21 @@ class CartItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    /**
+     * Determine whether the line can be bought as it stands: customers can see the product
+     * and it has enough stock for the quantity.
+     */
+    public function isPurchasable(): bool
+    {
+        return $this->product->isVisibleToCustomers() && $this->quantity <= $this->product->stock;
+    }
+
+    /**
+     * Get the product's current price times the quantity, formatted like a decimal column.
+     */
+    public function lineTotal(): string
+    {
+        return number_format((float) $this->product->price * $this->quantity, 2, '.', '');
+    }
 }
