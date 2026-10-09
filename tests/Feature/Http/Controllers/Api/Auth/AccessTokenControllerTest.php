@@ -47,6 +47,27 @@ class AccessTokenControllerTest extends TestCase
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 
+    public function test_returns_403_and_issues_no_token_for_a_blocked_customer(): void
+    {
+        $customer = User::factory()->blocked()->create();
+
+        $response = $this->postJson('/api/login', ['email' => $customer->email, 'password' => 'password']);
+
+        $response->assertForbidden();
+        $response->assertExactJson(['message' => 'Your account has been blocked. Please contact support.']);
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_returns_401_for_a_blocked_customer_with_a_wrong_password(): void
+    {
+        $customer = User::factory()->blocked()->create();
+
+        $response = $this->postJson('/api/login', ['email' => $customer->email, 'password' => 'wrong-password']);
+
+        $response->assertUnauthorized();
+        $response->assertExactJson(['message' => 'These credentials do not match our records.']);
+    }
+
     public function test_returns_401_for_an_unknown_email(): void
     {
         $response = $this->postJson('/api/login', ['email' => 'nobody@example.com', 'password' => 'password']);
