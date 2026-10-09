@@ -28,6 +28,34 @@ class Cart extends Model
      */
     public function items(): HasMany
     {
-        return $this->hasMany(CartItem::class);
+        return $this->hasMany(CartItem::class)->orderBy('id');
+    }
+
+    /**
+     * Get the number of units in the cart across all of its lines.
+     */
+    public function totalQuantity(): int
+    {
+        return (int) $this->items->sum('quantity');
+    }
+
+    /**
+     * Get what the lines that can be bought right now cost together, formatted like a decimal column.
+     */
+    public function total(): string
+    {
+        $total = $this->items
+            ->filter(fn (CartItem $item) => $item->isPurchasable())
+            ->sum(fn (CartItem $item) => (float) $item->lineTotal());
+
+        return number_format($total, 2, '.', '');
+    }
+
+    /**
+     * Determine whether the cart holds a line that is left out of the total.
+     */
+    public function hasUnpurchasableItems(): bool
+    {
+        return $this->items->contains(fn (CartItem $item) => ! $item->isPurchasable());
     }
 }

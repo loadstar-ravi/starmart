@@ -49,6 +49,23 @@
                 <p class="mt-3 inline-flex rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-800">In stock</p>
             @endif
 
+            @if ($product->isInStock())
+                @guest
+                    <p class="mt-6 text-sm text-slate-600">
+                        <a href="{{ route('login') }}" class="font-medium text-indigo-600 hover:underline">Login</a> to add this product to your cart.
+                    </p>
+                @endguest
+
+                @if (auth()->user()?->isCustomer())
+                    <form method="POST" action="{{ route('cart.items.store') }}" class="mt-6 flex flex-wrap items-end gap-3">
+                        @csrf
+                        <input type="hidden" name="product_id" value="{{ $product->id }}">
+                        <x-form.input name="quantity" label="Quantity" type="number" value="1" min="1" :max="$product->stock" required class="w-24" />
+                        <x-form.button>Add to cart</x-form.button>
+                    </form>
+                @endif
+            @endif
+
             @if ($product->description)
                 <h2 class="mt-8 text-sm font-semibold tracking-wide text-slate-500 uppercase">Description</h2>
                 <p class="mt-2 whitespace-pre-line text-slate-700">{{ $product->description }}</p>
