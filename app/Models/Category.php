@@ -46,4 +46,15 @@ class Category extends Model
     {
         $query->whereLike('name', '%'.$term.'%');
     }
+
+    /**
+     * Scope a query to the categories customers can browse.
+     *
+     * @param  Builder<Category>  $query
+     */
+    #[Scope]
+    protected function active(Builder $query): void
+    {
+        $query->where('is_active', true);
+    }
 }
