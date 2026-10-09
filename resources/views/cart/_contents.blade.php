@@ -108,10 +108,12 @@
             </dl>
 
             @if ($cart->hasUnpurchasableItems())
-                <p class="mt-3 text-sm text-amber-800">Items that cannot be bought right now are left out of the total.</p>
+                <p class="mt-3 text-sm text-amber-800">Items that cannot be bought right now are left out of the total. Update or remove them to check out.</p>
+            @else
+                <a href="{{ route('checkout.create') }}" class="mt-6 block rounded-lg bg-indigo-600 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-indigo-700">Proceed to checkout</a>
             @endif
 
-            <a href="{{ route('products.index') }}" class="mt-6 inline-flex text-sm font-medium text-indigo-600 hover:underline">Continue shopping</a>
+            <a href="{{ route('products.index') }}" class="mt-4 block text-center text-sm font-medium text-indigo-600 hover:underline">Continue shopping</a>
         </aside>
     </div>
 @endif

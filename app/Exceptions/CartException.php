@@ -6,10 +6,27 @@ use App\Models\Product;
 use Exception;
 
 /**
- * Thrown when a cart change breaks a shopping rule. The message is written for the customer.
+ * Thrown when a cart change, or an order for the cart, breaks a shopping rule.
+ * The message is written for the customer.
  */
 class CartException extends Exception
 {
+    /**
+     * There is nothing in the cart to order.
+     */
+    public static function emptyCart(): self
+    {
+        return new self('Your cart is empty.');
+    }
+
+    /**
+     * A product in the cart has been hidden from customers since it was added.
+     */
+    public static function productNoLongerAvailable(Product $product): self
+    {
+        return new self("\"{$product->name}\" is no longer available.");
+    }
+
     /**
      * The product does not exist or is hidden from customers.
      */

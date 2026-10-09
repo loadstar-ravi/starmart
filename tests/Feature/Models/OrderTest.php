@@ -13,6 +13,12 @@ class OrderTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_order_numbers_count_up_from_ord_10001(): void
+    {
+        $this->assertSame('ORD-10001', Order::numberFor(1));
+        $this->assertSame('ORD-10042', Order::numberFor(42));
+    }
+
     public function test_latest_payment_is_the_most_recent_attempt(): void
     {
         $order = Order::factory()->create();

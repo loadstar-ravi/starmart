@@ -12,7 +12,9 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CartItemController;
+use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\OrderSuccessController;
 use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,15 +37,22 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware('auth')
     ->name('logout');
 
-Route::middleware(['auth', 'customer'])->prefix('cart')->name('cart.')->group(function () {
-    Route::get('/', [CartController::class, 'show'])->name('show');
-    Route::post('/items', [CartItemController::class, 'store'])->name('items.store');
-    Route::patch('/items/{item}', [CartItemController::class, 'update'])
-        ->whereNumber('item')
-        ->name('items.update');
-    Route::delete('/items/{item}', [CartItemController::class, 'destroy'])
-        ->whereNumber('item')
-        ->name('items.destroy');
+Route::middleware(['auth', 'customer'])->group(function () {
+    Route::prefix('cart')->name('cart.')->group(function () {
+        Route::get('/', [CartController::class, 'show'])->name('show');
+        Route::post('/items', [CartItemController::class, 'store'])->name('items.store');
+        Route::patch('/items/{item}', [CartItemController::class, 'update'])
+            ->whereNumber('item')
+            ->name('items.update');
+        Route::delete('/items/{item}', [CartItemController::class, 'destroy'])
+            ->whereNumber('item')
+            ->name('items.destroy');
+    });
+
+    Route::get('/checkout', [CheckoutController::class, 'create'])->name('checkout.create');
+    Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+
+    Route::get('/orders/{orderNumber}/success', OrderSuccessController::class)->name('orders.success');
 });
 
 Route::prefix('admin')->name('admin.')->group(function () {

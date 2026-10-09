@@ -12,6 +12,21 @@ enum OrderStatus: string
     case Cancelled = 'cancelled';
 
     /**
+     * Get the name shown to people for this status.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Placed => 'Placed',
+            self::Confirmed => 'Confirmed',
+            self::Processing => 'Processing',
+            self::Shipped => 'Shipped',
+            self::Delivered => 'Delivered',
+            self::Cancelled => 'Cancelled',
+        };
+    }
+
+    /**
      * Determine whether a customer may still cancel an order in this status.
      */
     public function isCancellable(): bool
