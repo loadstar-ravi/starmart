@@ -5,10 +5,10 @@ namespace App\Http\Controllers;
 use App\Enums\PaymentStatus;
 use App\Exceptions\PaymentException;
 use App\Http\Requests\PaymentRequest;
-use App\Services\OrderService;
+use App\Models\Order;
 use App\Services\PaymentService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class PaymentController extends Controller
@@ -16,9 +16,9 @@ class PaymentController extends Controller
     /**
      * Show the payment page of an order, or the order itself when nothing is left to pay online.
      */
-    public function create(Request $request, string $orderNumber, OrderService $orderService): View|RedirectResponse
+    public function create(Order $order): View|RedirectResponse
     {
-        $order = $orderService->findForUser($request->user(), $orderNumber);
+        Gate::authorize('view', $order);
 
         if (! $order->isAwaitingPayment()) {
             return redirect()->route('orders.success', $order->order_number);

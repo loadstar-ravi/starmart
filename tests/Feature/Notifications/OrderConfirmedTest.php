@@ -43,7 +43,7 @@ class OrderConfirmedTest extends TestCase
         $this->assertStringContainsString('109,981.00', $html);
         $this->assertStringContainsString('110,780.00', $html);
         $this->assertStringContainsString('Cash on delivery', $html);
-        $this->assertStringContainsString(route('orders.success', 'ORD-10001'), $html);
+        $this->assertStringContainsString(route('orders.show', 'ORD-10001'), $html);
     }
 
     public function test_mail_escapes_the_customer_and_product_names(): void
