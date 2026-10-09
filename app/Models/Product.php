@@ -120,6 +120,14 @@ class Product extends Model
     }
 
     /**
+     * Determine whether customers can see the product: it is active and so is its category.
+     */
+    public function isVisibleToCustomers(): bool
+    {
+        return $this->isActive() && $this->category->is_active;
+    }
+
+    /**
      * Determine whether at least one unit can be bought.
      */
     public function isInStock(): bool
