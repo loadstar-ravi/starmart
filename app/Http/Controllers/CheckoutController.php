@@ -37,7 +37,7 @@ class CheckoutController extends Controller
     }
 
     /**
-     * Place an order for everything in the cart.
+     * Place an order for everything in the cart, then ask for the payment when it is made online.
      */
     public function store(OrderRequest $request, OrderService $orderService): RedirectResponse
     {
@@ -51,6 +51,9 @@ class CheckoutController extends Controller
             return redirect()->route('cart.show')->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('orders.success', $order->order_number);
+        return redirect()->route(
+            $order->isAwaitingPayment() ? 'payments.create' : 'orders.success',
+            $order->order_number,
+        );
     }
 }

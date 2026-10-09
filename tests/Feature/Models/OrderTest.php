@@ -2,11 +2,15 @@
 
 namespace Tests\Feature\Models;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class OrderTest extends TestCase
@@ -17,6 +21,54 @@ class OrderTest extends TestCase
     {
         $this->assertSame('ORD-10001', Order::numberFor(1));
         $this->assertSame('ORD-10042', Order::numberFor(42));
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>, 1: bool}>
+     */
+    public static function ordersAndWhetherTheyAwaitPayment(): array
+    {
+        return [
+            'online and not paid yet' => [
+                ['payment_method' => PaymentMethod::Online, 'payment_status' => PaymentStatus::Pending],
+                true,
+            ],
+            'online with a failed payment' => [
+                ['payment_method' => PaymentMethod::Online, 'payment_status' => PaymentStatus::Failed],
+                true,
+            ],
+            'online and paid' => [
+                ['payment_method' => PaymentMethod::Online, 'payment_status' => PaymentStatus::Success],
+                false,
+            ],
+            'online and refunded' => [
+                ['payment_method' => PaymentMethod::Online, 'payment_status' => PaymentStatus::Refunded],
+                false,
+            ],
+            'online, not paid, but cancelled' => [
+                [
+                    'payment_method' => PaymentMethod::Online,
+                    'payment_status' => PaymentStatus::Pending,
+                    'status' => OrderStatus::Cancelled,
+                ],
+                false,
+            ],
+            'cash on delivery' => [
+                ['payment_method' => PaymentMethod::Cod, 'payment_status' => PaymentStatus::Pending],
+                false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    #[DataProvider('ordersAndWhetherTheyAwaitPayment')]
+    public function test_only_unpaid_online_orders_that_are_not_cancelled_await_payment(array $attributes, bool $expected): void
+    {
+        $order = Order::factory()->create($attributes);
+
+        $this->assertSame($expected, $order->isAwaitingPayment());
     }
 
     public function test_latest_payment_is_the_most_recent_attempt(): void

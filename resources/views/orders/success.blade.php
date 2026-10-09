@@ -12,6 +12,16 @@
             <p class="mt-1 text-sm text-slate-600">A confirmation email is on its way to you.</p>
         </section>
 
+        @if ($order->isAwaitingPayment())
+            <section class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-6" aria-labelledby="payment-needed-heading">
+                <div>
+                    <h2 id="payment-needed-heading" class="font-bold text-amber-900">Payment needed</h2>
+                    <p class="mt-1 text-sm text-amber-800">This order is not paid yet. Pay online to complete it.</p>
+                </div>
+                <a href="{{ route('payments.create', $order->order_number) }}" class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Pay now</a>
+            </section>
+        @endif
+
         <section class="rounded-2xl bg-white p-6 shadow-xs" aria-labelledby="items-heading">
             <h2 id="items-heading" class="text-lg font-bold">Items</h2>
 

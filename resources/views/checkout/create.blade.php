@@ -1,7 +1,7 @@
 <x-layouts.app title="Checkout">
     <h1 class="text-2xl font-bold">Checkout</h1>
 
-    <form method="POST" action="{{ route('checkout.store') }}" data-checkout-form class="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start">
+    <form method="POST" action="{{ route('checkout.store') }}" data-submit-once class="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start">
         @csrf
 
         <div class="flex min-w-0 grow flex-col gap-6">
@@ -73,7 +73,7 @@
                 <dd class="font-bold"><x-money :amount="$cart->total()" /></dd>
             </dl>
 
-            <x-form.button data-checkout-submit class="mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60">Place order</x-form.button>
+            <x-form.button data-busy-label="Placing order…" class="mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60">Place order</x-form.button>
 
             <a href="{{ route('cart.show') }}" class="mt-3 block text-center text-sm font-medium text-indigo-600 hover:underline">Back to cart</a>
         </aside>
