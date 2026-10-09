@@ -16,7 +16,9 @@
 
             @auth
                 <div class="flex flex-wrap items-center gap-4 text-sm font-medium">
-                    <a href="{{ route('admin.dashboard') }}" class="hover:text-indigo-300">Dashboard</a>
+                    <a href="{{ route('admin.dashboard') }}" @class(['hover:text-indigo-300', 'text-indigo-300' => request()->routeIs('admin.dashboard')])>Dashboard</a>
+                    <a href="{{ route('admin.categories.index') }}" @class(['hover:text-indigo-300', 'text-indigo-300' => request()->routeIs('admin.categories.*')])>Categories</a>
+                    <a href="{{ route('admin.products.index') }}" @class(['hover:text-indigo-300', 'text-indigo-300' => request()->routeIs('admin.products.*')])>Products</a>
                     <span class="text-slate-400">{{ auth()->user()->name }}</span>
                     <form method="POST" action="{{ route('admin.logout') }}">
                         @csrf
@@ -28,6 +30,18 @@
     </header>
 
     <main class="mx-auto w-full max-w-7xl grow px-4 py-8">
+        @if (session('status'))
+            <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800" role="status">
+                {{ session('status') }}
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                {{ session('error') }}
+            </div>
+        @endif
+
         {{ $slot }}
     </main>
 </body>
