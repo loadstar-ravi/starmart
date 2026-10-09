@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -28,5 +30,46 @@ class HomePageTest extends TestCase
         $response->assertOk();
         $response->assertSee('&lt;script&gt;', false);
         $response->assertDontSee("<script>alert('xss')</script>", false);
+    }
+
+    public function test_links_to_the_active_categories_only(): void
+    {
+        Category::factory()->create(['name' => 'Electronics', 'slug' => 'electronics']);
+        Category::factory()->inactive()->create(['name' => 'Hidden Range', 'slug' => 'hidden-range']);
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertSee(route('products.index', ['category' => 'electronics']));
+        $response->assertDontSee('Hidden Range');
+    }
+
+    public function test_new_arrivals_show_only_products_customers_can_buy(): void
+    {
+        Product::factory()->create(['name' => 'Gaming Laptop']);
+        Product::factory()->inactive()->create(['name' => 'Retired Phone']);
+        Product::factory()->outOfStock()->create(['name' => 'Sold Out Camera']);
+        Product::factory()->for(Category::factory()->inactive())->create(['name' => 'Hidden Tablet']);
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertSee('Gaming Laptop');
+        $response->assertDontSee('Retired Phone');
+        $response->assertDontSee('Sold Out Camera');
+        $response->assertDontSee('Hidden Tablet');
+    }
+
+    public function test_new_arrivals_show_the_eight_newest_products(): void
+    {
+        $category = Category::factory()->create();
+        Product::factory()->for($category)->create(['name' => 'Oldest Product', 'created_at' => now()->subDays(10)]);
+        Product::factory()->for($category)->count(8)->create(['created_at' => now()->subDay()]);
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertViewHas('newArrivals', fn ($products) => $products->count() === 8);
+        $response->assertDontSee('Oldest Product');
     }
 }
