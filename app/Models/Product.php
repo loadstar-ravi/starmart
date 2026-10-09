@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\ProductStatus;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -84,5 +86,24 @@ class Product extends Model
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    /**
+     * Scope a query to products whose name contains the given term.
+     *
+     * @param  Builder<Product>  $query
+     */
+    #[Scope]
+    protected function search(Builder $query, string $term): void
+    {
+        $query->whereLike('name', '%'.$term.'%');
+    }
+
+    /**
+     * Determine whether the product is visible to customers.
+     */
+    public function isActive(): bool
+    {
+        return $this->status === ProductStatus::Active;
     }
 }
