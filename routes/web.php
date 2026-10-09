@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\ProductImageController;
 use App\Http\Controllers\Admin\ProductStatusController;
 use App\Http\Controllers\Admin\ProductStockController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\CartController;
@@ -95,5 +96,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('orders', AdminOrderController::class)->only(['index', 'show']);
         Route::patch('/orders/{order}/status', [OrderStatusController::class, 'update'])
             ->name('orders.status.update');
+
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     });
 });

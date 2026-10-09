@@ -20,6 +20,7 @@
                     <a href="{{ route('admin.categories.index') }}" @class(['hover:text-indigo-300', 'text-indigo-300' => request()->routeIs('admin.categories.*')])>Categories</a>
                     <a href="{{ route('admin.products.index') }}" @class(['hover:text-indigo-300', 'text-indigo-300' => request()->routeIs('admin.products.*')])>Products</a>
                     <a href="{{ route('admin.orders.index') }}" @class(['hover:text-indigo-300', 'text-indigo-300' => request()->routeIs('admin.orders.*')])>Orders</a>
+                    <a href="{{ route('admin.reports.index') }}" @class(['hover:text-indigo-300', 'text-indigo-300' => request()->routeIs('admin.reports.*')])>Reports</a>
                     <span class="text-slate-400">{{ auth()->user()->name }}</span>
                     <form method="POST" action="{{ route('admin.logout') }}">
                         @csrf

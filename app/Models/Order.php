@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use Carbon\CarbonImmutable;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -78,6 +79,29 @@ class Order extends Model
                     });
                 });
         });
+    }
+
+    /**
+     * Scope a query to the orders that count as sales: the ones that are paid.
+     * A paid order that is cancelled becomes refunded, so it stops counting.
+     *
+     * @param  Builder<Order>  $query
+     */
+    #[Scope]
+    protected function paid(Builder $query): void
+    {
+        $query->where('payment_status', PaymentStatus::Success);
+    }
+
+    /**
+     * Scope a query to orders placed from the start of the first day to the end of the last.
+     *
+     * @param  Builder<Order>  $query
+     */
+    #[Scope]
+    protected function placedBetween(Builder $query, CarbonImmutable $from, CarbonImmutable $to): void
+    {
+        $query->whereBetween($query->qualifyColumn('created_at'), [$from->startOfDay(), $to->endOfDay()]);
     }
 
     /**
