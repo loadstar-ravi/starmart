@@ -59,6 +59,16 @@ class Order extends Model
     }
 
     /**
+     * Determine whether the customer still has to pay online for the order.
+     */
+    public function isAwaitingPayment(): bool
+    {
+        return $this->payment_method === PaymentMethod::Online
+            && $this->status !== OrderStatus::Cancelled
+            && in_array($this->payment_status, [PaymentStatus::Pending, PaymentStatus::Failed], true);
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo

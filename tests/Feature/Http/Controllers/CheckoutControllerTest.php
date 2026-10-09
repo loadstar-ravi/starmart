@@ -98,6 +98,16 @@ class CheckoutControllerTest extends TestCase
         $this->assertSame(0, $customer->cartItems()->count());
     }
 
+    public function test_an_order_paid_online_goes_to_its_payment_page(): void
+    {
+        $customer = User::factory()->create();
+        $this->putInCart($customer, Product::factory()->create(['stock' => 5]), 1);
+
+        $response = $this->actingAs($customer)->post('/checkout', [...self::CHECKOUT, 'payment_method' => 'online']);
+
+        $response->assertRedirectToRoute('payments.create', Order::query()->sole()->order_number);
+    }
+
     public function test_accepts_the_payment_method_in_upper_case(): void
     {
         $customer = User::factory()->create();
