@@ -5,9 +5,10 @@ namespace App\Services;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Events\OrderPlaced;
+use App\Events\OrderStatusChanged;
 use App\Exceptions\CartException;
 use App\Exceptions\OrderException;
-use App\Jobs\SendOrderConfirmationJob;
 use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\Product;
@@ -29,6 +30,7 @@ class OrderService
      *
      * Prices and the total come from the products as they are now, never from the request.
      * Everything is written in one transaction, so a failure leaves nothing half-saved.
+     * Once it is saved, the order is announced so the confirmation email gets sent.
      *
      * @param  array{name: string, mobile: string, email: string, address: string, city: string, state: string, pincode: string}  $shippingAddress
      *
@@ -53,7 +55,7 @@ class OrderService
             'stock_reduced_by_product' => $order->items->pluck('quantity', 'product_id')->all(),
         ]);
 
-        SendOrderConfirmationJob::dispatch($order);
+        OrderPlaced::dispatch($order);
 
         return $order;
     }
@@ -77,7 +79,7 @@ class OrderService
      *
      * A paid order is refunded; an unpaid one has its open payment closed. The order row is
      * locked and everything is written in one transaction, so an order cannot be cancelled
-     * twice and a failure leaves nothing half-done.
+     * twice and a failure leaves nothing half-done. The customer is told by email afterwards.
      *
      * @throws OrderException
      */
@@ -120,6 +122,8 @@ class OrderService
                 ->all(),
         ]);
 
+        OrderStatusChanged::dispatch($order);
+
         return $order;
     }
 
@@ -128,6 +132,7 @@ class OrderService
      *
      * Cancelling goes through cancel(), so the stock and the payment are settled exactly as
      * when the customer cancels. A cash on delivery order is recorded as paid once it is delivered.
+     * The customer is told by email afterwards.
      *
      * @throws OrderException
      */
@@ -172,6 +177,8 @@ class OrderService
             'to' => $order->status->value,
             'payment_status' => $order->payment_status->value,
         ]);
+
+        OrderStatusChanged::dispatch($order);
 
         return $order;
     }
