@@ -8,6 +8,7 @@ use App\Enums\PaymentStatus;
 use App\Exceptions\CartException;
 use App\Exceptions\OrderException;
 use App\Jobs\SendOrderConfirmationJob;
+use App\Listeners\SendOrderStatusNotification;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Category;
@@ -16,9 +17,12 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
+use App\Notifications\OrderStatusUpdated;
 use App\Services\OrderService;
 use Closure;
+use Illuminate\Events\CallQueuedListener;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestWith;
@@ -467,6 +471,66 @@ class OrderServiceTest extends TestCase
             $this->assertSame($from, $order->refresh()->status);
             $this->assertSame(PaymentStatus::Pending, $order->payment_status);
         }
+    }
+
+    public function test_moving_an_order_forward_emails_its_customer_about_the_new_status(): void
+    {
+        $order = Order::factory()->create();
+        Notification::fake();
+
+        (new OrderService)->updateStatus($order, OrderStatus::Shipped);
+
+        Notification::assertSentTo(
+            $order->user,
+            fn (OrderStatusUpdated $notification) => $notification->order->is($order)
+                && $notification->order->status === OrderStatus::Shipped,
+        );
+    }
+
+    public function test_a_customer_cancelling_their_order_is_emailed_about_it_once(): void
+    {
+        $order = Order::factory()->create();
+        Notification::fake();
+
+        (new OrderService)->cancel($order);
+
+        Notification::assertSentToTimes($order->user, OrderStatusUpdated::class, 1);
+    }
+
+    public function test_the_shop_cancelling_an_order_emails_its_customer_once(): void
+    {
+        $order = Order::factory()->create();
+        Notification::fake();
+
+        (new OrderService)->updateStatus($order, OrderStatus::Cancelled);
+
+        Notification::assertSentToTimes($order->user, OrderStatusUpdated::class, 1);
+    }
+
+    public function test_a_refused_status_change_emails_nobody(): void
+    {
+        $order = Order::factory()->status(OrderStatus::Delivered)->create();
+        Notification::fake();
+
+        try {
+            (new OrderService)->updateStatus($order, OrderStatus::Shipped);
+            $this->fail('The status change should have been refused.');
+        } catch (OrderException) {
+            Notification::assertNothingSent();
+        }
+    }
+
+    public function test_the_status_email_is_left_to_the_queue_instead_of_being_sent_on_the_spot(): void
+    {
+        $order = Order::factory()->create();
+        Queue::fake();
+
+        (new OrderService)->updateStatus($order, OrderStatus::Shipped);
+
+        Queue::assertPushed(
+            CallQueuedListener::class,
+            fn (CallQueuedListener $job) => $job->class === SendOrderStatusNotification::class,
+        );
     }
 
     private function putInCart(User $user, Product $product, int $quantity): void
