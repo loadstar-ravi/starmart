@@ -15,7 +15,7 @@ class EnsureUserIsCustomer
      */
     public function handle(Request $request, Closure $next): Response
     {
-        abort_unless($request->user()?->isCustomer() === true, Response::HTTP_FORBIDDEN);
+        abort_unless($request->user()?->isCustomer() === true, Response::HTTP_FORBIDDEN, 'Only customers can do this.');
 
         return $next($request);
     }

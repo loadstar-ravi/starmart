@@ -55,6 +55,7 @@ class EnsureUserIsAdminTest extends TestCase
         $response = $this->getJson('/api/admin/ping');
 
         $response->assertForbidden();
+        $response->assertJsonPath('message', 'Only admins can do this.');
     }
 
     public function test_allows_admins_onto_admin_apis(): void
