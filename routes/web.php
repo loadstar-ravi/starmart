@@ -24,6 +24,8 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderSuccessController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProfilePasswordController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
@@ -68,6 +70,12 @@ Route::middleware(['auth', 'customer'])->group(function () {
 
     Route::get('/orders/{order:order_number}/payment', [PaymentController::class, 'create'])->name('payments.create');
     Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
+
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfilePasswordController::class, 'update'])
+        ->middleware('throttle:6,1')
+        ->name('profile.password.update');
 });
 
 Route::prefix('admin')->name('admin.')->group(function () {

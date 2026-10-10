@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\OrderCancellationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\ProfilePasswordController;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -46,5 +48,10 @@ Route::middleware('auth:sanctum')->group(function () {
             ->name('api.orders.cancel');
 
         Route::post('/payment/process', [PaymentController::class, 'store'])->name('api.payment.process');
+
+        Route::put('/user', [ProfileController::class, 'update'])->name('api.user.update');
+        Route::put('/user/password', [ProfilePasswordController::class, 'update'])
+            ->middleware('throttle:6,1')
+            ->name('api.user.password.update');
     });
 });
