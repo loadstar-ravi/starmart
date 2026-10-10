@@ -1,7 +1,6 @@
 @if ($cart->items->isEmpty())
     <div class="rounded-2xl bg-white px-6 py-16 text-center text-slate-600 shadow-xs">
         <p class="font-medium text-slate-900">Your cart is empty.</p>
-        <p class="mt-1 text-sm">Add a product and it will show up here.</p>
         <a href="{{ route('products.index') }}" class="mt-6 inline-flex rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Shop all products</a>
     </div>
 @else

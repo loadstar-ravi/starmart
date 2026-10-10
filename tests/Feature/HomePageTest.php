@@ -34,30 +34,33 @@ class HomePageTest extends TestCase
         $response->assertDontSee("<script>alert('xss')</script>", false);
     }
 
-    public function test_navigation_does_not_link_guests_to_the_cart_or_their_orders(): void
+    public function test_navigation_does_not_link_guests_to_the_cart_their_orders_or_a_profile(): void
     {
         $response = $this->get('/');
 
         $response->assertOk();
         $response->assertDontSee(route('cart.show'));
         $response->assertDontSee(route('orders.index'));
+        $response->assertDontSee(route('profile.edit'));
     }
 
-    public function test_navigation_does_not_link_admins_to_the_cart_or_their_orders(): void
+    public function test_navigation_does_not_link_admins_to_the_cart_their_orders_or_a_profile(): void
     {
         $response = $this->actingAs(User::factory()->admin()->create())->get('/');
 
         $response->assertOk();
         $response->assertDontSee(route('cart.show'));
         $response->assertDontSee(route('orders.index'));
+        $response->assertDontSee(route('profile.edit'));
     }
 
-    public function test_navigation_links_customers_to_their_orders(): void
+    public function test_navigation_links_customers_to_their_orders_and_profile(): void
     {
         $response = $this->actingAs(User::factory()->create())->get('/');
 
         $response->assertOk();
         $response->assertSee(route('orders.index'));
+        $response->assertSee(route('profile.edit'));
     }
 
     public function test_navigation_shows_how_many_units_are_in_the_cart_of_the_signed_in_customer(): void
