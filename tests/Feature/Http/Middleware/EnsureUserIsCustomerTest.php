@@ -36,6 +36,7 @@ class EnsureUserIsCustomerTest extends TestCase
         $response = $this->getJson('/api/cart');
 
         $response->assertForbidden();
+        $response->assertJsonPath('message', 'Only customers can do this.');
     }
 
     public function test_allows_customers_onto_customer_apis(): void
